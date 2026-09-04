@@ -1,0 +1,6 @@
+streamlit==1.49.1
+supabase==2.18.1
+yfinance==0.2.65
+pandas==2.3.2
+plotly==6.3.0
+pytz==2025.2
