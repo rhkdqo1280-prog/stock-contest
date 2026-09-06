@@ -10,7 +10,7 @@ from market import STOCKS, SCENARIOS, load_prices
 st.set_page_config(page_title="주식 타임머신",page_icon="📈",layout="wide")
 KST=pytz.timezone("Asia/Seoul")
 st.markdown("""<style>
-.stApp{background:#f4f7fb}.block-container{max-width:1400px;padding-top:1.4rem}
+.stApp{background:#f4f7fb}.block-container{max-width:1400px;padding-top:5rem!important}
 .hero{padding:28px;border-radius:22px;background:linear-gradient(130deg,#10203b,#1557d5);color:white;margin-bottom:18px}
 .hero h1{margin:0;font-size:2.4rem}.hero p{opacity:.8;margin:.5rem 0 0}
 .code{font-size:2rem;font-weight:800;letter-spacing:.15em;color:#1557d5}
@@ -36,6 +36,14 @@ def ranking(comp,prices):
         asset=float(player["cash"])+sum(float(prices[h["ticker"]].iloc[day])*h["quantity"] for h in holds if h["player_id"]==player["id"])
         rows.append({"학번":player["student_id"],"이름":player["name"],"총자산":asset,"수익률":(asset-float(comp["initial_cash"]))/float(comp["initial_cash"])*100,"player_id":player["id"]})
     return sorted(rows,key=lambda row:row["총자산"],reverse=True)
+
+def reveal_market(comp):
+    st.success(f"정답 공개 · {str(comp['scenario_start'])[:4]}년 실제 한국 주식시장")
+    st.caption("대회 중에는 종목명과 가격을 바꿨지만, 실제 일별 등락률은 그대로 사용했습니다.")
+    st.dataframe(pd.DataFrame([
+        {"대회 종목":alias,"실제 종목":real_name,"시장":market}
+        for alias,market,real_name in STOCKS.values()
+    ]),hide_index=True,use_container_width=True)
 
 def login():
     st.markdown('<div class="hero"><h1>📈 주식 타임머신</h1><p>연도를 숨긴 과거 한국 주식시장 모의투자 대회</p></div>',unsafe_allow_html=True)
@@ -104,13 +112,14 @@ def manage(comp,prices):
         right.write("최근 거래");right.dataframe(pd.DataFrame([{"일차":t["day_index"]+1,"종목":STOCKS[t["ticker"]][0],"구분":"매수" if t["side"]=="buy" else "매도","수량":t["quantity"],"가격":f"{float(t['price']):,.0f}원"} for t in trades]),hide_index=True,use_container_width=True)
     if comp["status"]=="active" and st.button("대회 종료"):
         db().table("competitions").update({"status":"ended"}).eq("id",comp["id"]).execute();st.rerun()
+    if comp["status"]=="ended": reveal_market(comp)
 
 def student(comp,player,prices):
     day=current_day(comp);rows=ranking(comp,prices);me=next(r for r in rows if r["player_id"]==player["id"])
     st.markdown(f'<div class="hero"><h1>{comp["title"]}</h1><p>{day+1}일 차 · 실제 연도와 날짜는 종료 전까지 비공개</p></div>',unsafe_allow_html=True)
     if st.button("로그아웃"):st.session_state.clear();st.rerun()
     a,b,c=st.columns(3);a.metric("총자산",f"{me['총자산']:,.0f}원",f"{me['수익률']:+.2f}%");b.metric("보유 현금",f"{float(player['cash']):,.0f}원");c.metric("현재 순위",f"{[r['player_id'] for r in rows].index(player['id'])+1}위")
-    options={f"{name} · {market}":ticker for ticker,(name,market) in STOCKS.items()}
+    options={f"{name} · {market}":ticker for ticker,(name,market,_) in STOCKS.items()}
     ticker=options[st.selectbox("거래할 종목",options)];series=prices[ticker].iloc[:day+1];price=float(series.iloc[-1]);prev=float(series.iloc[-2]) if len(series)>1 else price
     st.subheader(STOCKS[ticker][0]);st.metric("오늘의 종가",f"{price:,.0f}원",f"{(price-prev)/prev*100:+.2f}%")
     frame=pd.DataFrame({"일차":range(1,len(series)+1),"종가":series.values});st.plotly_chart(px.line(frame,x="일차",y="종가",markers=True),use_container_width=True)
@@ -123,6 +132,7 @@ def student(comp,player,prices):
             try:db().rpc("execute_trade",{"p_player_id":player["id"],"p_ticker":ticker,"p_side":"sell","p_quantity":quantity,"p_price":price,"p_day_index":day}).execute();st.rerun()
             except Exception as error:st.error(str(error))
     st.subheader("실시간 순위");st.dataframe(pd.DataFrame([{"순위":i+1,"이름":r["이름"],"수익률":f"{r['수익률']:+.2f}%"} for i,r in enumerate(rows)]),hide_index=True,use_container_width=True)
+    if comp["status"]=="ended": reveal_market(comp)
 
 try:
     if "role" not in st.session_state:login()
