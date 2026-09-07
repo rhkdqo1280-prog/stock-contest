@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 KST = pytz.timezone("Asia/Seoul")
-APP_VERSION = "2026.09.07-7"
+APP_VERSION = "2026.09.07-9"
 
 # 교사 비밀번호 6340의 암호화 값
 TEACHER_HASH = (
@@ -133,7 +133,10 @@ def make_code():
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
     while True:
-        value = "".join(random.choice(chars) for _ in range(6))
+        value = "".join(
+            random.choice(chars)
+            for _ in range(6)
+        )
 
         if not one("competitions", code=value):
             return value
@@ -144,11 +147,16 @@ def current_day(comp):
         comp["starts_at"].replace("Z", "+00:00")
     ).astimezone(KST).date()
 
-    elapsed = (datetime.now(KST).date() - started).days
+    elapsed_days = (
+        datetime.now(KST).date() - started
+    ).days
 
     return max(
         0,
-        min(int(comp["duration"]) - 1, elapsed),
+        min(
+            int(comp["duration"]) - 1,
+            elapsed_days,
+        ),
     )
 
 
@@ -164,7 +172,10 @@ def ranking(comp, prices):
         .data
     )
 
-    player_ids = [player["id"] for player in players]
+    player_ids = [
+        player["id"]
+        for player in players
+    ]
 
     if player_ids:
         holdings = (
@@ -179,48 +190,57 @@ def ranking(comp, prices):
     else:
         holdings = []
 
-    rows = []
+    ranking_rows = []
 
     for player in players:
         stock_value = sum(
-            float(prices[holding["ticker"]].iloc[day])
-            * holding["quantity"]
+            float(
+                prices[holding["ticker"]].iloc[day]
+            ) * holding["quantity"]
             for holding in holdings
             if holding["player_id"] == player["id"]
         )
 
-        total_asset = float(player["cash"]) + stock_value
-        initial_cash = float(comp["initial_cash"])
+        total_asset = (
+            float(player["cash"]) + stock_value
+        )
 
-        rows.append(
+        initial_cash = float(
+            comp["initial_cash"]
+        )
+
+        profit_rate = (
+            (total_asset - initial_cash)
+            / initial_cash
+            * 100
+        )
+
+        ranking_rows.append(
             {
                 "학번": player["student_id"],
                 "이름": player["name"],
                 "총자산": total_asset,
-                "수익률": (
-                    (total_asset - initial_cash)
-                    / initial_cash
-                    * 100
-                ),
+                "수익률": profit_rate,
                 "player_id": player["id"],
             }
         )
 
     return sorted(
-        rows,
+        ranking_rows,
         key=lambda row: row["총자산"],
         reverse=True,
     )
 
 
 def reveal_market(comp):
+    year = str(comp["scenario_start"])[:4]
+
     st.success(
-        f"정답 공개 · "
-        f"{str(comp['scenario_start'])[:4]}년 실제 한국 주식시장"
+        f"정답 공개 · {year}년 실제 한국 주식시장"
     )
 
     st.caption(
-        "대회 중에는 종목명과 가격을 바꿨지만, "
+        "대회 중에는 종목명과 가격을 바꿨지만 "
         "실제 일별 등락률은 그대로 사용했습니다."
     )
 
@@ -253,7 +273,9 @@ def delete_competition(comp):
         key=f"delete_confirm_{comp['id']}",
     ).strip().upper()
 
-    delete_disabled = confirmation != comp["code"]
+    delete_disabled = (
+        confirmation != comp["code"]
+    )
 
     if st.button(
         "대회 영구 삭제",
@@ -271,21 +293,36 @@ def delete_competition(comp):
         )
 
         st.session_state.page = "list"
-        st.session_state.pop("competition_id", None)
+        st.session_state.pop(
+            "competition_id",
+            None,
+        )
+
         st.rerun()
 
 
 def advance_competition_day(comp):
     started = datetime.fromisoformat(
-        comp["starts_at"].replace("Z", "+00:00")
+        comp["starts_at"].replace(
+            "Z",
+            "+00:00",
+        )
     )
 
-    new_started = started - timedelta(days=1)
+    new_started = (
+        started - timedelta(days=1)
+    )
 
     (
         db()
         .table("competitions")
-        .update({"starts_at": new_started.isoformat()})
+        .update(
+            {
+                "starts_at": (
+                    new_started.isoformat()
+                )
+            }
+        )
         .eq("id", comp["id"])
         .execute()
     )
@@ -296,7 +333,10 @@ def login():
         """
         <div class="hero">
             <h1>📈 주식 타임머신</h1>
-            <p>연도를 숨긴 과거 한국 주식시장 모의투자 대회</p>
+            <p>
+                연도를 숨긴 과거 한국 주식시장
+                모의투자 대회
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -313,13 +353,21 @@ def login():
                 max_chars=6,
             ).strip().upper()
 
-            student_id = st.text_input("학번").strip()
-            name = st.text_input("이름").strip()
+            student_id = st.text_input(
+                "학번"
+            ).strip()
+
+            name = st.text_input(
+                "이름"
+            ).strip()
 
             pin = st.text_input(
                 "개인 비밀번호",
                 type="password",
-                help="다른 컴퓨터에서 다시 접속할 때 사용합니다.",
+                help=(
+                    "다른 컴퓨터에서 다시 접속할 때 "
+                    "사용합니다."
+                ),
             )
 
             submitted = st.form_submit_button(
@@ -329,13 +377,20 @@ def login():
             )
 
             if submitted:
-                comp = one("competitions", code=code)
+                comp = one(
+                    "competitions",
+                    code=code,
+                )
 
                 if not comp:
-                    st.error("대회 코드를 확인하세요.")
+                    st.error(
+                        "대회 코드를 확인하세요."
+                    )
 
                 elif not student_id or not name:
-                    st.error("학번과 이름을 입력하세요.")
+                    st.error(
+                        "학번과 이름을 입력하세요."
+                    )
 
                 elif len(pin) < 4:
                     st.error(
@@ -385,7 +440,7 @@ def login():
 
     with teacher_tab:
         with st.form("teacher_login"):
-            pin = st.text_input(
+            teacher_pin = st.text_input(
                 "교사 관리 비밀번호",
                 type="password",
                 max_chars=4,
@@ -397,7 +452,7 @@ def login():
             )
 
             if submitted:
-                if pin != "6340":
+                if teacher_pin != "6340":
                     st.error(
                         "패스워드 오류 · "
                         "교사 비밀번호가 맞지 않습니다."
@@ -436,13 +491,51 @@ def teacher_home():
                 20,
             )
 
+            available_years = sorted(
+                {
+                    scenario[:4]
+                    for scenario in SCENARIOS
+                }
+            )
+
+            year_options = ["랜덤"] + [
+                f"{year}년"
+                for year in available_years
+            ]
+
+            year_choice = st.selectbox(
+                "주식시장 연도",
+                year_options,
+                help=(
+                    "학생에게는 대회가 끝날 때까지 "
+                    "연도가 공개되지 않습니다."
+                ),
+            )
+
             submitted = st.form_submit_button(
                 "대회 만들기",
                 type="primary",
+                use_container_width=True,
             )
 
             if submitted:
-                scenario = random.choice(SCENARIOS)
+                if year_choice == "랜덤":
+                    candidates = SCENARIOS
+
+                else:
+                    selected_year = year_choice[:4]
+
+                    candidates = [
+                        scenario
+                        for scenario in SCENARIOS
+                        if scenario.startswith(
+                            selected_year
+                        )
+                    ]
+
+                scenario = random.choice(
+                    candidates
+                )
 
                 load_prices(
                     scenario,
@@ -464,36 +557,63 @@ def teacher_home():
                     .execute()
                 )
 
-                st.success("대회를 만들었습니다.")
+                st.success(
+                    "대회를 만들었습니다."
+                )
+
                 st.rerun()
 
     competitions = (
         db()
         .table("competitions")
         .select("*")
-        .order("created_at", desc=True)
+        .order(
+            "created_at",
+            desc=True,
+        )
         .execute()
         .data
     )
 
     if not competitions:
-        st.info("아직 만들어진 대회가 없습니다.")
+        st.info(
+            "아직 만들어진 대회가 없습니다."
+        )
 
     for comp in competitions:
         with st.container(border=True):
-            left, middle, right = st.columns([2, 1, 1])
+            left, middle, right = st.columns(
+                [2, 1, 1]
+            )
 
-            left.subheader(comp["title"])
+            left.subheader(
+                comp["title"]
+            )
 
             left.markdown(
-                f'<div class="code">{comp["code"]}</div>',
+                (
+                    f'<div class="code">'
+                    f'{comp["code"]}'
+                    f'</div>'
+                ),
                 unsafe_allow_html=True,
+            )
+
+            competition_year = str(
+                comp["scenario_start"]
+            )[:4]
+
+            left.caption(
+                f"교사용 설정 연도 · "
+                f"{competition_year}년"
             )
 
             middle.metric(
                 "진행",
-                f"{current_day(comp) + 1}/"
-                f"{comp['duration']}일",
+                (
+                    f"{current_day(comp) + 1}/"
+                    f"{comp['duration']}일"
+                ),
             )
 
             status_text = (
@@ -538,19 +658,19 @@ def manage(comp, prices):
     rows = ranking(comp, prices)
     day = current_day(comp)
 
-    metric1, metric2, metric3 = st.columns(3)
+    first, second, third = st.columns(3)
 
-    metric1.metric(
+    first.metric(
         "참가 인원",
         f"{len(rows)}명",
     )
 
-    metric2.metric(
+    second.metric(
         "진행",
         f"{day + 1}/{comp['duration']}일",
     )
 
-    metric3.metric(
+    third.metric(
         "상태",
         (
             "진행 중"
@@ -577,7 +697,7 @@ def manage(comp, prices):
 
         st.caption(
             "매일 자동 진행은 그대로 유지됩니다. "
-            "이 버튼을 누르면 즉시 다음 거래일로 넘어갑니다."
+            "버튼을 누르면 다음 거래일로 넘어갑니다."
         )
 
     else:
@@ -587,11 +707,12 @@ def manage(comp, prices):
         )
 
     with st.expander(
-        "🔑 학생 비밀번호 초기화",
-        expanded=False,
+        "🔑 학생 비밀번호 초기화"
     ):
         if not rows:
-            st.info("참가한 학생이 없습니다.")
+            st.info(
+                "참가한 학생이 없습니다."
+            )
 
         else:
             reset_labels = [
@@ -599,14 +720,16 @@ def manage(comp, prices):
                 for row in rows
             ]
 
-            reset_selected = st.selectbox(
+            selected_label = st.selectbox(
                 "학생 선택",
                 reset_labels,
                 key=f"reset_student_{comp['id']}",
             )
 
-            reset_person = rows[
-                reset_labels.index(reset_selected)
+            selected_student = rows[
+                reset_labels.index(
+                    selected_label
+                )
             ]
 
             new_pin = st.text_input(
@@ -617,13 +740,11 @@ def manage(comp, prices):
                 help="4자리 이상 입력하세요.",
             )
 
-            reset_clicked = st.button(
+            if st.button(
                 "이 비밀번호로 초기화",
                 key=f"reset_pin_{comp['id']}",
                 use_container_width=True,
-            )
-
-            if reset_clicked:
+            ):
                 if len(new_pin) < 4:
                     st.error(
                         "새 비밀번호를 "
@@ -635,17 +756,23 @@ def manage(comp, prices):
                         db()
                         .table("players")
                         .update(
-                            {"pin_hash": sha(new_pin)}
+                            {
+                                "pin_hash": sha(
+                                    new_pin
+                                )
+                            }
                         )
                         .eq(
                             "id",
-                            reset_person["player_id"],
+                            selected_student[
+                                "player_id"
+                            ],
                         )
                         .execute()
                     )
 
                     st.success(
-                        f"{reset_person['이름']} 학생의 "
+                        f"{selected_student['이름']} 학생의 "
                         "비밀번호를 초기화했습니다."
                     )
 
@@ -659,7 +786,9 @@ def manage(comp, prices):
     st.divider()
 
     if rows:
-        table = pd.DataFrame(rows).drop(
+        table = pd.DataFrame(
+            rows
+        ).drop(
             columns=["player_id"]
         )
 
@@ -669,12 +798,20 @@ def manage(comp, prices):
             range(1, len(table) + 1),
         )
 
-        table["총자산"] = table["총자산"].map(
-            lambda value: f"{value:,.0f}원"
+        table["총자산"] = (
+            table["총자산"].map(
+                lambda value: (
+                    f"{value:,.0f}원"
+                )
+            )
         )
 
-        table["수익률"] = table["수익률"].map(
-            lambda value: f"{value:+.2f}%"
+        table["수익률"] = (
+            table["수익률"].map(
+                lambda value: (
+                    f"{value:+.2f}%"
+                )
+            )
         )
 
         st.dataframe(
@@ -683,18 +820,18 @@ def manage(comp, prices):
             hide_index=True,
         )
 
-        labels = [
+        student_labels = [
             f"{row['학번']} {row['이름']}"
             for row in rows
         ]
 
         selected = st.selectbox(
             "학생 상세 보기",
-            labels,
+            student_labels,
         )
 
-        person = rows[
-            labels.index(selected)
+        student = rows[
+            student_labels.index(selected)
         ]
 
         holdings = (
@@ -703,7 +840,7 @@ def manage(comp, prices):
             .select("*")
             .eq(
                 "player_id",
-                person["player_id"],
+                student["player_id"],
             )
             .gt("quantity", 0)
             .execute()
@@ -716,9 +853,12 @@ def manage(comp, prices):
             .select("*")
             .eq(
                 "player_id",
-                person["player_id"],
+                student["player_id"],
             )
-            .order("created_at", desc=True)
+            .order(
+                "created_at",
+                desc=True,
+            )
             .limit(50)
             .execute()
             .data
@@ -819,30 +959,30 @@ def student(comp, player, prices):
         st.session_state.clear()
         st.rerun()
 
-    metric1, metric2, metric3 = st.columns(3)
+    first, second, third = st.columns(3)
 
-    metric1.metric(
+    first.metric(
         "총자산",
         f"{me['총자산']:,.0f}원",
         f"{me['수익률']:+.2f}%",
     )
 
-    metric2.metric(
+    second.metric(
         "보유 현금",
         f"{float(player['cash']):,.0f}원",
     )
 
-    rank = [
+    current_rank = [
         row["player_id"]
         for row in rows
     ].index(player["id"]) + 1
 
-    metric3.metric(
+    third.metric(
         "현재 순위",
-        f"{rank}위",
+        f"{current_rank}위",
     )
 
-    stock_options = {
+    options = {
         f"{name} · {market}": ticker
         for ticker, (
             name,
@@ -853,15 +993,17 @@ def student(comp, player, prices):
 
     selected_stock = st.selectbox(
         "거래할 종목",
-        stock_options,
+        options,
     )
 
-    ticker = stock_options[selected_stock]
+    ticker = options[selected_stock]
     series = prices[ticker].iloc[:day + 1]
     price = float(series.iloc[-1])
 
     if len(series) > 1:
-        previous_price = float(series.iloc[-2])
+        previous_price = float(
+            series.iloc[-2]
+        )
     else:
         previous_price = price
 
@@ -871,7 +1013,9 @@ def student(comp, player, prices):
         * 100
     )
 
-    st.subheader(STOCKS[ticker][0])
+    st.subheader(
+        STOCKS[ticker][0]
+    )
 
     st.metric(
         "오늘의 종가",
@@ -881,7 +1025,10 @@ def student(comp, player, prices):
 
     chart_data = pd.DataFrame(
         {
-            "일차": range(1, len(series) + 1),
+            "일차": range(
+                1,
+                len(series) + 1,
+            ),
             "종가": series.values,
         }
     )
@@ -923,7 +1070,9 @@ def student(comp, player, prices):
             step=1,
         )
 
-        buy_column, sell_column = st.columns(2)
+        buy_column, sell_column = (
+            st.columns(2)
+        )
 
         if buy_column.button(
             "매수",
@@ -986,10 +1135,14 @@ def student(comp, player, prices):
         portfolio = []
 
         for holding in my_holdings:
-            holding_ticker = holding["ticker"]
+            holding_ticker = (
+                holding["ticker"]
+            )
 
             current_price = float(
-                prices[holding_ticker].iloc[day]
+                prices[
+                    holding_ticker
+                ].iloc[day]
             )
 
             portfolio.append(
@@ -1006,17 +1159,23 @@ def student(comp, player, prices):
                 }
             )
 
-        display_table = pd.DataFrame(portfolio)
+        display_table = pd.DataFrame(
+            portfolio
+        )
 
         display_table["현재가"] = (
             display_table["현재가"].map(
-                lambda value: f"{value:,.0f}원"
+                lambda value: (
+                    f"{value:,.0f}원"
+                )
             )
         )
 
         display_table["평가금액"] = (
             display_table["평가금액"].map(
-                lambda value: f"{value:,.0f}원"
+                lambda value: (
+                    f"{value:,.0f}원"
+                )
             )
         )
 
@@ -1106,8 +1265,14 @@ try:
             )
 
             price_data = load_prices(
-                str(competition["scenario_start"]),
-                int(competition["duration"]),
+                str(
+                    competition[
+                        "scenario_start"
+                    ]
+                ),
+                int(
+                    competition["duration"]
+                ),
             )
 
             manage(
@@ -1127,8 +1292,14 @@ try:
         )
 
         price_data = load_prices(
-            str(competition["scenario_start"]),
-            int(competition["duration"]),
+            str(
+                competition[
+                    "scenario_start"
+                ]
+            ),
+            int(
+                competition["duration"]
+            ),
         )
 
         student(
@@ -1149,4 +1320,6 @@ except Exception as error:
     )
 
 
-st.caption(f"앱 버전 · {APP_VERSION}")
+st.caption(
+    f"앱 버전 · {APP_VERSION}"
+)
