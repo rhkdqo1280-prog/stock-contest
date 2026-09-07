@@ -43,3 +43,14 @@ alter table competitions enable row level security;
 alter table players enable row level security;
 alter table holdings enable row level security;
 alter table trades enable row level security;
+alter table competitions
+add column if not exists show_real_names
+boolean not null default false;
+
+alter table competitions
+add column if not exists use_real_prices
+boolean not null default false;
+
+alter table competitions
+add column if not exists show_year
+boolean not null default false;
