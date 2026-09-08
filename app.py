@@ -1225,6 +1225,13 @@ def student(
     player,
     prices,
 ):
+    # 학생 화면을 30초마다 자동 갱신합니다.
+    # 교사가 날짜를 넘기면 학생 화면도 최대 30초 안에 바뀝니다.
+    st_autorefresh(
+        interval=30000,
+        key="student_auto_refresh",
+    )
+
     day = current_day(comp)
 
     rows = ranking(
