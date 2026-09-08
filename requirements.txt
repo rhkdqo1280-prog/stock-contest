@@ -4,3 +4,4 @@ yfinance
 pandas
 plotly
 pytz
+streamlit-autorefresh
