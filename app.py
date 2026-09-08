@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 import pytz
 import streamlit as st
-
+from streamlit_autorefresh import st_autorefresh
 from database import db, one, sha
 from market import (
     STOCKS,
